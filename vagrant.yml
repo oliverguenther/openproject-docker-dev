@@ -1,0 +1,8 @@
+# VirtualBox VM settings
+vm:
+  # Name of the machine, must be unique
+  name: "op_boot2docker"
+  # No. of CPUs used by the vm
+  cpus: 2
+  # Amount of RAM used by the vm
+  memory: 2048

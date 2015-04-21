@@ -1,0 +1,16 @@
+default: &default
+  adapter: postgresql
+  encoding: unicode
+  pool: 5
+  host: postgres
+  port: 5432
+  username: openproject
+  password: openproject
+
+development:
+  <<: *default
+  database: openproject_dev
+
+test:
+  <<: *default
+  database: openproject_test
