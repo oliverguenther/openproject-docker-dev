@@ -30,15 +30,16 @@ postgres:
 web:
   build: .
   ports:
-    - "5000:5000"
+    - "3000:3000"
   links:
     - postgres
+  volumes:
+    - ../:/app/
   volumes_from:
     - data
-  volumes:
-    - /usr/src/openproject/:/app/
   environment:
     HOST: 0.0.0.0
+    PORT: 3000
     RAILS_ENV: development
     SECRET_TOKEN: op_devtoken
 data:

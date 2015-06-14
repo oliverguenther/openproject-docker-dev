@@ -29,32 +29,26 @@ A number of workarounds exist:
 1. [Patching the boot2docker VM](http://syskall.com/using-boot2docker-using-nfs-instead-of-vboxsf/) to add NFS support. This requires manually adding the boot2docker vm to the Mac's NFS export configuration.
 2. Employing [a custom boot2docker box with Vagrant](https://github.com/blinkreaction/boot2docker-vagrant), which allows a selection of faster mechanisms (automatic NFS configuration, rsync).
 3. A data container with a synchronization engine (e.g., https://github.com/leighmcculloch/docker-unison). This looks promising and may be a viable alternative to Vagrant.
-4. A host-side script to automate unison / fswatch synchronization such as [Hodor](https://github.com/gansbrest/hodor). However, with it
+4. A host-side script to automate unison / fswatch synchronization such as [Hodor](https://github.com/gansbrest/hodor).
+5. A wrapper script to patch boot2docker with a synchronization engine. Two prominent examples are [dinghy](https://github.com/codekitchen/dinghy) and [docker-osx-dev](https://github.com/brikis98/docker-osx-dev).
 
-For the time being, this repo includes the second workaround with Vagrant. Feel free to use a different method on Mac.
+For a while, this repo included the workaround based on Vagrant. But this required some mangling with the paths and introduces Feel free to use a different method on Mac.
 
-To install the custom boot2docker vm, you'll need Virtualbox and Vagrant. I assume you have installed and actively use [Homebrew](http://brew.sh/).
+Instead I now suggest to use [docker-osx-dev](https://github.com/brikis98/docker-osx-dev), instead.
+You still need boot2docker
 
-With brew-cask (http://caskroom.io/), you can install images from the commandline. If you do not have brew cask installed, install with the following command.
+To install the boot2docker virtual machine to run docker.
+I recommend installing it through homebrew, which allows you to install [docker and docker-compose](https://docs.docker.com/compose/install/). in one go.
 
-    brew install caskroom/cask/brew-cask
-
-Then, install the dependencies:
+	brew install boot2docker docker docker-compose
 	
-	brew cask install vagrant
-	brew cask install virtualbox
+Then, install `docker-osx-dev` with the following commands:
 
-And then install [docker and docker-compose](https://docs.docker.com/compose/install/).
-
-	brew install docker docker-compose
-	
-	
-You can then control the vagrant VM similar to boot2docker, using `vagrant up` and `vagrant halt`.
-[See the vagrant documentation for more information on the available commands](https://docs.vagrantup.com/v2/cli/index.html).
-
+    curl -o /usr/local/bin/docker-osx-dev https://raw.githubusercontent.com/brikis98/docker-osx-dev/master/src/docker-osx-dev
+    chmod +x /usr/local/bin/docker-osx-dev
+    docker-osx-dev install
 
 ## Installation
-
 
 Clone the openproject repository into a subfolder openproject.
 
@@ -65,11 +59,6 @@ Then, clone this repo
     git clone https://github.com/oliverguenther/openproject-docker-dev.git
     cd openproject-docker-dev    
     
- 
-Remove `.mac` or `.linux` from `docker-compose.yml<suffix>`. On the Mac, the volume commands are referring to the proxy filesystem, with which we need to synchronize our data through vagrant.
-On Linux, you can directly use the host volumes.
-Thus, we need separate configuration files for docker-compose for now.
-
 
 As we use a database container, we can exploit the entries from docker-compose to the hosts file to refer to our database.
 Copy the following configuration from `openproject-docker-dev/config/database.yml` to `openproject/config/database.yml`.
@@ -92,18 +81,12 @@ Copy the following configuration from `openproject-docker-dev/config/database.ym
 	  database: openproject_test
 
 
-On Mac, bring up the VM, use `vagrant up`. This will synchronize the host directory with NFS.
-To use the docker client on the Mac host, you still need to tell Docker where the daemon is running by executing:
+On Mac, prepare synchronization with rsync using  `docker-osx-dev`. This will synchronize the host directory with rsync.
+It will keep running and watching for changes on the host side.
 
-    export DOCKER_HOST=tcp://localhost:2375
+In a new tab, run `docker-compose build` build the OpenProject web image and its dependencies. It bases on the official [ruby-2.1.5](https://registry.hub.docker.com/_/ruby/) image. Initial installation thus might take a while.
 
-and run `docker-compose build` within it to build the OpenProject web image. It bases on the official [ruby-2.1.5](https://registry.hub.docker.com/_/ruby/) image. Initial installation thus might take a while.
-
-    git clone https://github.com/oliverguenther/openproject-docker-dev.git
-    cd openproject-docker-dev
-    docker-compose build
-    
-Install the required gems and frontend packages with bundler using the data container:
+Once the build step is completed, the following steps will install the required gems and frontend packages with bundler using the data container:
 
     docker-compose run web bundle install
     docker-compose run web npm install
@@ -118,46 +101,38 @@ Finally, setup the PostgreSQL database with the following commands.
 
 ## Usage
 
-To start the OpenProject web container and its linked database, simply execute
+To start the OpenProject web container with foreman and its linked database, simply execute
 
-    docker-compose run --service-ports web
+    docker-compose up
 
+You can also spawn a shell on the container and start foreman manually:
 
-You can add the `-d` flag to detach the container from the foreground. Note that `docker-compose up` will not work due to gems requiring an interactive shell.
+    docker-compose run --service-ports web bash
 
-You can the visit the following URL in a browser on your host machine to get started:
+The `--service-ports` flag will ensure that exposed ports from the Dockerfile will be available to the host.
 
-    http://127.0.0.1:5000
+On Mac, `docker-osx-dev` writes a host entry for `dockerhost`, so you can the visit the following URL in a browser to get started:
+
+    http://dockerhost:5000
     
-### Data Synchronization
-
-On Linux, no synchronization is needed, as the host filesystem is mounted directly. 
-On Mac, the parent directory of the Vagrantfile is synced bi-directional with VM to the boot2docker VM.
-
-[While rsync is a bit faster](https://github.com/blinkreaction/boot2docker-vagrant) on the Mac, the one-way synchronization causes some issues when installing node and bower modules to `frontend/`. While npm / bower paths can be adjusted, dependencies in the frontend files are not properly resolved.
+On Linux, the port is forwarded to the host directly, so exposed ports are available on localhost.
+    
 
 ### Update OpenProject code
 
-To upgrade your OpenProject installation, simply pull on the homest machine and (let vagrant) sync the files if you're on Mac.
+To upgrade your OpenProject installation, simply pull on the host machine and let docker-osx-dev sync the files if you're on Mac.
 
-As on the host itself, you may need to update gems or database migrations.
-
-    docker-compose run web bundle install
-    docker-compose run web rake db:migrate
+On the container, you may need to update gems, node modules or database migrations, as you would on the host itself.
+Re-run the above commands when necessary.
 
 ## Data persistence
 
 The gems installed by the web container by bundler as well as the PostgreSQL data is *stored* in the data container, but not (directly) persisted anywhere on the host itself.
 
 The application data itself is mounted using volumes in docker-compose.
-For Mac, note that these mounts refer to the filesystem on the boot2docker/vagrant-boot2docker VM. Any data from the parent directory of the openproject-docker-dev directory on the host is shared to `/usr/src/openproject/dev/`.
+For Mac, note that these mounts also refer to the filesystem on the boot2docker/vagrant-boot2docker VM. Any data from the parent directory of the openproject-docker-dev directory on the host is shared to `/app/`.
 
-On Linux, the volumes are directly shared from the parent directory to `/app/openproject`.
-
-While docker-compose provides shared volumes from the host with the *volume* directive, this performs significantly worse on OSX due to the VM implementation.
-A promising alternative is to look into NFS-based shared volumes (e.g., [boot2docker-vagrant](https://github.com/blinkreaction/boot2docker-vagrant)).
-
-Until this is resolved, this image provides little use as a development platform, as there is no direct passing of code from the host to the image.
+On Linux, the volumes are directly shared from the parent directory to `/app/`.
 
 ## Plugins
 
@@ -167,13 +142,11 @@ For local development, use the `:path` directive of bundler:
 
     gem "openproject-revisions_git", :path => '../plugins/openproject-revisions_git'
 
-If the plugin code resides anywhere below the parent of `openproject-docker-dev`, it is available at `/app/openproject`, and thus the relative path doesn't break.
+If the plugin code resides anywhere below the parent of `openproject-docker-dev`, it is available at `/app/openproject`, and thus is accessible with a relative path.
 
 ## License
 
 Copyright (c) 2015 Oliver Günther (mail@oliverguenther.de)
-
-Bases on the vagrant-boot2docker Vagrantfile. Copyright (c) 2015 blinkreaction
 
 OpenProject is a project management system.
 Copyright (C) 2013 the OpenProject Foundation (OPF)

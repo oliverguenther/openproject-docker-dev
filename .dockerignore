@@ -1,0 +1,4 @@
+node_modules/
+frontend/bower_components/
+.git/
+tmp/

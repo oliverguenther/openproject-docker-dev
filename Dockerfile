@@ -47,6 +47,9 @@ RUN gem install foreman
 # Install bower
 RUN npm -g install bower
 
+# Install remote debugger (RubyMine)
+RUN gem install ruby-debug-ide
+
 # Allow bower to run as root and set path
 COPY config/.bowerrc /root/.bowerrc
 
@@ -58,5 +61,5 @@ RUN bundle config path /bundler
 
 WORKDIR $OP_ROOT
 
-CMD HOST=0.0.0.0 foreman start -f Procfile.dev -c web=1,assets=1,worker=0
+CMD HOST=0.0.0.0 PORT=3000 foreman start -f Procfile.dev -c web=1,assets=1,worker=0
 
