@@ -84,7 +84,7 @@ Copy the following configuration from `openproject-docker-dev/config/database.ym
 On Mac, prepare synchronization with rsync using  `docker-osx-dev`. This will synchronize the host directory with rsync.
 It will keep running and watching for changes on the host side.
 
-In a new tab, run `docker-compose build` build the OpenProject web image and its dependencies. It bases on the official [ruby-2.1.5](https://registry.hub.docker.com/_/ruby/) image. Initial installation thus might take a while.
+In a new tab, run `docker-compose build` build the OpenProject web image and its dependencies. It bases on the official [ruby-2.1.6](https://registry.hub.docker.com/_/ruby/) image. Initial installation thus might take a while.
 
 Once the build step is completed, the following steps will install the required gems and frontend packages with bundler using the data container:
 
